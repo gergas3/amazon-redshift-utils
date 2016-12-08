@@ -16,6 +16,7 @@ truely unscanned over longer periods of time.
 
 History:
 2016-01-18 chriz-bigdata created
+2016-12-07 gergas3 do rounding after summation
 **********************************************************************************************/
 WITH
     nodes AS (SELECT COUNT(DISTINCT node) nodenum FROM stv_slices),
@@ -36,7 +37,7 @@ WITH
             schema, 
             table_id, 
             "table", 
-            ROUND(size::float/(1024*1024)::float,2) AS size, 
+            size::float/((1024*1024)::float) AS size, 
             sortkey1, 
             NVL(s.num_qs,0) num_qs
         FROM svv_table_info t
@@ -55,10 +56,10 @@ WITH
 	WHERE t."schema" NOT IN ('pg_internal')),
     scan_aggs AS (
         SELECT 
-            sum(size) AS total_table_size,
+            ROUND(sum(size), 2) AS total_table_size,
             count(*) AS total_table_num,
             SUM(CASE WHEN num_qs = 0 THEN 1 ELSE 0 END) AS num_unscanned_tables,
-            SUM(CASE WHEN num_qs = 0 THEN size ELSE 0 END) AS size_unscanned_tables,
+            ROUND(SUM(CASE WHEN num_qs = 0 THEN size ELSE 0 END), 2) AS size_unscanned_tables,
             storage.total_storage
         FROM
             table_scans, storage GROUP BY total_storage)
@@ -66,5 +67,5 @@ SELECT
     total_table_num || ' total tables @ ' || total_table_size || 'TB / ' || total_storage || 'TB (' || ROUND(100*(total_table_size::float/total_storage::float),1) || '%)' AS total_table_storage,
     num_unscanned_tables || ' unscanned tables @ ' || size_unscanned_tables || 'TB / ' || total_storage || 'TB (' || ROUND(100*(size_unscanned_tables::float/total_storage::float),1) || '%)' AS unscanned_table_storage
 FROM
-    scan_aggs;
+scan_aggs;
 
